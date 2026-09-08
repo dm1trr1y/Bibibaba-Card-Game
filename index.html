@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Дикий Запад: Дуэль Карт</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
+      body {
+        font-family: "Courier New", Courier, monospace;
+        background-color: #2b1d0c;
+        color: #f4e8c1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      #game-container {
+        width: 900px;
+        height: 650px;
+        background: #4a3525;
+        border: 4px solid #8c6747;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Экраны */
+      .screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: rgba(43, 29, 12, 0.95);
+        z-index: 10;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      h1 {
+        font-size: 36px;
+        color: #e7a652;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px #000;
+      }
+      h2 {
+        font-size: 28px;
+        color: #d9534f;
+        margin-bottom: 15px;
+      }
+      p {
+        font-size: 18px;
+        margin-bottom: 20px;
+        text-align: center;
+        max-width: 600px;
+      }
+
+      button {
+        padding: 12px 24px;
+        font-size: 18px;
+        font-weight: bold;
+        background: #8c6747;
+        color: #fff;
+        border: 2px solid #e7a652;
+        cursor: pointer;
+        margin: 10px;
+        transition: 0.2s;
+      }
+      button:hover {
+        background: #e7a652;
+        color: #000;
+      }
+
+      /* Игровое поле */
+      #battle-screen {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        padding: 20px;
+      }
+
+      .character-zone {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #3b281a;
+        padding: 15px;
+        border-radius: 8px;
+        border: 2px solid #634731;
+      }
+
+      .stats {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .hp-bar {
+        width: 150px;
+        height: 15px;
+        background: #555;
+        border: 1px solid #000;
+        position: relative;
+      }
+      .hp-fill {
+        height: 100%;
+        background: #d9534f;
+        width: 100%;
+        transition: width 0.3s;
+      }
+      .block-tag {
+        color: #5bc0de;
+        font-weight: bold;
+      }
+
+      /* Намерения врага (Inscryption Style) */
+      #enemy-intent {
+        background: #22150a;
+        border: 2px dashed #e7a652;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        min-width: 200px;
+      }
+
+      /* Рука и карты */
+      #hand-zone {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        min-height: 160px;
+        align-items: flex-end;
+      }
+
+      .card {
+        width: 110px;
+        height: 150px;
+        border-radius: 8px;
+        border: 2px solid #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 10px;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.5);
+        color: #fff;
+        text-shadow: 1px 1px 2px #000;
+      }
+      .card:hover {
+        transform: translateY(-15px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+      }
+
+      /* Типы карт (Цвета Bang!) */
+      .card-attack {
+        background: linear-gradient(135deg, #c9302c, #8b0000);
+      } /* Выстрел */
+      .card-defend {
+        background: linear-gradient(135deg, #31b0d5, #1b6d85);
+      } /* Мимо / Уворот */
+      .card-heal {
+        background: linear-gradient(135deg, #4cae4c, #255625);
+      } /* Пиво / Хилл */
+      .card-special {
+        background: linear-gradient(135deg, #f0ad4e, #985f0d);
+      } /* Взрыв / Дуэль */
+
+      .card-title {
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        padding-bottom: 4px;
+      }
+      .card-cost {
+        font-size: 12px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 2px 5px;
+        border-radius: 4px;
+        width: fit-content;
+      }
+      .card-desc {
+        font-size: 11px;
+        text-align: center;
+      }
+
+      /* Управление */
+      #controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .deck-info {
+        font-size: 14px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- Главное меню -->
+      <div id="main-menu" class="screen">
+        <h1>ДИКИЙ ЗАПАД: КАРТОЧНАЯ ДУЭЛЬ</h1>
+        <p>
+          Используйте карты выстрелов, уклонений и лечения. Просчитывайте
+          намерения врага на шаг вперёд, чтобы выжить!
+        </p>
+        <button onclick="startGame(1)">Уровень 1 (Новичок)</button>
+        <button onclick="startGame(2)">Уровень 2 (Ковбой)</button>
+        <button onclick="startGame(3)">Уровень 3 (Легенда Запада)</button>
+      </div>
+
+      <!-- Поражение -->
+      <div id="game-over" class="screen hidden">
+        <h2>ВЫ УБИТЫ В ДУЭЛИ...</h2>
+        <p id="death-reason">Вас застрелили в пылу сражения.</p>
+        <button onclick="showMenu()">В главное меню</button>
+      </div>
+
+      <!-- Победа -->
+      <div id="victory" class="screen hidden">
+        <h1 style="color: #5cb85c">ПОБЕДА!</h1>
+        <p>Вы оказались быстрее и хладнокровнее вашего противника.</p>
+        <button onclick="showMenu()">В главное меню</button>
+      </div>
+
+      <!-- Игровой интерфейс -->
+      <div id="battle-screen" class="hidden">
+        <!-- Враг -->
+        <div class="character-zone">
+          <div class="stats">
+            <h3 id="enemy-name">Противник</h3>
+            <div>
+              Здоровье: <span id="enemy-hp">0</span>/<span id="enemy-max-hp"
+                >0</span
+              >
+            </div>
+            <div class="hp-bar">
+              <div id="enemy-hp-fill" class="hp-fill"></div>
+            </div>
+            <div class="block-tag">
+              Уворот (Защита): <span id="enemy-block">0</span>
+            </div>
+          </div>
+
+          <!-- Намерение врага (Inscryption) -->
+          <div id="enemy-intent">
+            <div style="font-size: 12px; color: #e7a652">НАМЕРЕНИЕ ВРАГА:</div>
+            <div
+              id="intent-text"
+              style="font-size: 16px; font-weight: bold; margin-top: 5px"
+            >
+              -
+            </div>
+          </div>
+        </div>
+
+        <!-- Поле боя / Сообщения -->
+        <div
+          id="log"
+          style="
+            text-align: center;
+            font-style: italic;
+            color: #e7a652;
+            min-height: 24px;
+          "
+        ></div>
+
+        <!-- Игрок -->
+        <div class="character-zone">
+          <div class="stats">
+            <h3>Вы (Ковбой)</h3>
+            <div>
+              Здоровье: <span id="player-hp">0</span>/<span id="player-max-hp"
+                >0</span
+              >
+            </div>
+            <div class="hp-bar">
+              <div id="player-hp-fill" class="hp-fill"></div>
+            </div>
+            <div class="block-tag">
+              Уворот (Защита): <span id="player-block">0</span>
+            </div>
+          </div>
+          <div>
+            Энергия:
+            <span
+              id="player-energy"
+              style="font-size: 20px; color: #f0ad4e; font-weight: bold"
+              >3</span
+            >/3
+          </div>
+        </div>
+
+        <!-- Рука с картами -->
+        <div id="hand-zone"></div>
+
+        <!-- Панель управления -->
+        <div id="controls">
+          <div class="deck-info">
+            Колода: <span id="deck-count">0</span> | Сброс:
+            <span id="discard-count">0</span>
+          </div>
+          <button
+            onclick="endTurn()"
+            style="background: #d9534f; border-color: #ac2925"
+          >
+            Завершить ход
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Базовый набор карт (Шаблоны)
+      const CARD_TYPES = {
+        BANG: {
+          id: "bang",
+          name: "БЭНГ!",
+          type: "card-attack",
+          cost: 1,
+          desc: "Наносит 6 урона.",
+          play: (p, e) => attackEnemy(6),
+        },
+        HEAVY_BANG: {
+          id: "heavy_bang",
+          name: "ДРОБОВИК",
+          type: "card-attack",
+          cost: 2,
+          desc: "Наносит 14 урона.",
+          play: (p, e) => attackEnemy(14),
+        },
+        MISSED: {
+          id: "missed",
+          name: "МИМО!",
+          type: "card-defend",
+          cost: 1,
+          desc: "Даёт 5 защиты от выстрелов.",
+          play: (p, e) => addPlayerBlock(5),
+        },
+        BEER: {
+          id: "beer",
+          name: "ПИВО",
+          type: "card-heal",
+          cost: 1,
+          desc: "Восстанавливает 5 HP.",
+          play: (p, e) => healPlayer(5),
+        },
+        DUEL: {
+          id: "duel",
+          name: "ДУЭЛЬ",
+          type: "card-special",
+          cost: 2,
+          desc: "Наносит 10 урона и даёт 4 защиты.",
+          play: (p, e) => {
+            attackEnemy(10);
+            addPlayerBlock(4);
+          },
+        },
+      };
+
+      // Состояние игры
+      let gameState = {
+        level: 1,
+        player: {
+          hp: 30,
+          maxHp: 30,
+          block: 0,
+          energy: 3,
+          maxEnergy: 3,
+          deck: [],
+          hand: [],
+          discard: [],
+        },
+        enemy: { name: "", hp: 0, maxHp: 0, block: 0, intent: null },
+        turn: "player",
+      };
+
+      // Инициализация стартовой колоды (Slay the Spire style)
+      function createStartingDeck() {
+        return [
+          { ...CARD_TYPES.BANG },
+          { ...CARD_TYPES.BANG },
+          { ...CARD_TYPES.BANG },
+          { ...CARD_TYPES.BANG },
+          { ...CARD_TYPES.MISSED },
+          { ...CARD_TYPES.MISSED },
+          { ...CARD_TYPES.MISSED },
+          { ...CARD_TYPES.BEER },
+          { ...CARD_TYPES.HEAVY_BANG },
+        ];
+      }
+
+      function startGame(level) {
+        gameState.level = level;
+        gameState.player.hp = 30;
+        gameState.player.maxHp = 30;
+        gameState.player.block = 0;
+        gameState.player.deck = shuffle([...createStartingDeck()]);
+        gameState.player.discard = [];
+        gameState.player.hand = [];
+
+        // Настройка уровня противника
+        if (level === 1) {
+          gameState.enemy = {
+            name: "Пьяный Джим (Лёгкий)",
+            hp: 25,
+            maxHp: 25,
+            block: 0,
+            intent: null,
+          };
+        } else if (level === 2) {
+          gameState.enemy = {
+            name: "Бандит Билли (Средний)",
+            hp: 40,
+            maxHp: 40,
+            block: 0,
+            intent: null,
+          };
+        } else if (level === 3) {
+          gameState.enemy = {
+            name: "Шериф Черный Глаз (Сложный)",
+            hp: 60,
+            maxHp: 60,
+            block: 0,
+            intent: null,
+          };
+        }
+
+        document.getElementById("main-menu").classList.add("hidden");
+        document.getElementById("game-over").classList.add("hidden");
+        document.getElementById("victory").classList.add("hidden");
+        document.getElementById("battle-screen").classList.remove("hidden");
+
+        startPlayerTurn();
+      }
+
+      function showMenu() {
+        document.getElementById("main-menu").classList.remove("hidden");
+        document.getElementById("game-over").classList.add("hidden");
+        document.getElementById("victory").classList.add("hidden");
+        document.getElementById("battle-screen").classList.add("hidden");
+      }
+
+      // Логика карт и добора
+      function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+      }
+
+      function drawCards(amount) {
+        for (let i = 0; i < amount; i++) {
+          if (gameState.player.deck.length === 0) {
+            if (gameState.player.discard.length === 0) break;
+            gameState.player.deck = shuffle([...gameState.player.discard]);
+            gameState.player.discard = [];
+          }
+          gameState.player.hand.push(gameState.player.deck.pop());
+        }
+      }
+
+      // Ход игрока
+      function startPlayerTurn() {
+        gameState.turn = "player";
+        gameState.player.energy = gameState.player.maxEnergy;
+        gameState.player.block = 0; // Сброс защиты в начале хода
+
+        generateEnemyIntent();
+        drawCards(4);
+        updateUI();
+        log("Ваш ход! Выберите карты.");
+      }
+
+      function playCard(index) {
+        if (gameState.turn !== "player") return;
+        const card = gameState.player.hand[index];
+
+        if (gameState.player.energy >= card.cost) {
+          gameState.player.energy -= card.cost;
+          gameState.player.hand.splice(index, 1);
+          gameState.player.discard.push(card);
+
+          card.play();
+
+          checkBattleStatus();
+          updateUI();
+        } else {
+          log("Не хватает энергии!");
+        }
+      }
+
+      // Действия карт
+      function attackEnemy(damage) {
+        let actualDamage = damage;
+        if (gameState.enemy.block > 0) {
+          if (gameState.enemy.block >= actualDamage) {
+            gameState.enemy.block -= actualDamage;
+            actualDamage = 0;
+          } else {
+            actualDamage -= gameState.enemy.block;
+            gameState.enemy.block = 0;
+          }
+        }
+        gameState.enemy.hp = Math.max(0, gameState.enemy.hp - actualDamage);
+        log(`Вы нанесли ${damage} урона!`);
+      }
+
+      function addPlayerBlock(amount) {
+        gameState.player.block += amount;
+        log(`Вы получили ${amount} защиты.`);
+      }
+
+      function healPlayer(amount) {
+        gameState.player.hp = Math.min(
+          gameState.player.maxHp,
+          gameState.player.hp + amount,
+        );
+        log(`Вы восстановили ${amount} HP.`);
+      }
+
+      // Генерация намерения врага (Inscryption Style)
+      function generateEnemyIntent() {
+        const lvl = gameState.level;
+        const rand = Math.random();
+
+        if (lvl === 1) {
+          if (rand < 0.6)
+            gameState.enemy.intent = {
+              type: "attack",
+              value: 4,
+              text: "Выстрел (4 урона)",
+            };
+          else
+            gameState.enemy.intent = {
+              type: "defend",
+              value: 4,
+              text: "Укрытие (+4 защиты)",
+            };
+        } else if (lvl === 2) {
+          if (rand < 0.5)
+            gameState.enemy.intent = {
+              type: "attack",
+              value: 8,
+              text: "Двойной выстрел (8 урона)",
+            };
+          else if (rand < 0.8)
+            gameState.enemy.intent = {
+              type: "defend",
+              value: 8,
+              text: "Засада (+8 защиты)",
+            };
+          else
+            gameState.enemy.intent = {
+              type: "heavy",
+              value: 12,
+              text: "Прицельный выстрел (12 урона)",
+            };
+        } else if (lvl === 3) {
+          if (rand < 0.4)
+            gameState.enemy.intent = {
+              type: "attack",
+              value: 12,
+              text: "Залп (12 урона)",
+            };
+          else if (rand < 0.7)
+            gameState.enemy.intent = {
+              type: "counter",
+              value: 10,
+              block: 10,
+              text: "Защита (+10) и Контратака (10 урона)",
+            };
+          else
+            gameState.enemy.intent = {
+              type: "heavy",
+              value: 18,
+              text: "Выстрел из дробовика (18 урона)",
+            };
+        }
+      }
+
+      // Конец хода и ход бота
+      function endTurn() {
+        if (gameState.turn !== "player") return;
+
+        // Сброс руки
+        gameState.player.discard.push(...gameState.player.hand);
+        gameState.player.hand = [];
+
+        // Ход Врага
+        gameState.turn = "enemy";
+        gameState.enemy.block = 0; // Сброс защиты бота
+
+        setTimeout(() => {
+          executeEnemyIntent();
+          checkBattleStatus();
+          if (gameState.player.hp > 0 && gameState.enemy.hp > 0) {
+            startPlayerTurn();
+          }
+        }, 800);
+      }
+
+      function executeEnemyIntent() {
+        const intent = gameState.enemy.intent;
+        if (!intent) return;
+
+        if (intent.type === "attack" || intent.type === "heavy") {
+          applyEnemyDamage(intent.value);
+        } else if (intent.type === "defend") {
+          gameState.enemy.block += intent.value;
+          log(`${gameState.enemy.name} укрылся (+${intent.value} защиты).`);
+        } else if (intent.type === "counter") {
+          gameState.enemy.block += intent.block;
+          applyEnemyDamage(intent.value);
+        }
+      }
+
+      function applyEnemyDamage(damage) {
+        let actualDamage = damage;
+        if (gameState.player.block > 0) {
+          if (gameState.player.block >= actualDamage) {
+            gameState.player.block -= actualDamage;
+            actualDamage = 0;
+          } else {
+            actualDamage -= gameState.player.block;
+            gameState.player.block = 0;
+          }
+        }
+        gameState.player.hp = Math.max(0, gameState.player.hp - actualDamage);
+        log(`${gameState.enemy.name} нанес вам ${damage} урона!`);
+      }
+
+      // Проверка победы/поражения
+      function checkBattleStatus() {
+        if (gameState.enemy.hp <= 0) {
+          document.getElementById("battle-screen").classList.add("hidden");
+          document.getElementById("victory").classList.remove("hidden");
+        } else if (gameState.player.hp <= 0) {
+          document.getElementById("battle-screen").classList.add("hidden");
+          document.getElementById("game-over").classList.remove("hidden");
+        }
+      }
+
+      // Обновление Интерфейса
+      function updateUI() {
+        // Игрок
+        document.getElementById("player-hp").innerText = gameState.player.hp;
+        document.getElementById("player-max-hp").innerText =
+          gameState.player.maxHp;
+        document.getElementById("player-hp-fill").style.width =
+          `${(gameState.player.hp / gameState.player.maxHp) * 100}%`;
+        document.getElementById("player-block").innerText =
+          gameState.player.block;
+        document.getElementById("player-energy").innerText =
+          gameState.player.energy;
+
+        // Колоды
+        document.getElementById("deck-count").innerText =
+          gameState.player.deck.length;
+        document.getElementById("discard-count").innerText =
+          gameState.player.discard.length;
+
+        // Враг
+        document.getElementById("enemy-name").innerText = gameState.enemy.name;
+        document.getElementById("enemy-hp").innerText = gameState.enemy.hp;
+        document.getElementById("enemy-max-hp").innerText =
+          gameState.enemy.maxHp;
+        document.getElementById("enemy-hp-fill").style.width =
+          `${(gameState.enemy.hp / gameState.enemy.maxHp) * 100}%`;
+        document.getElementById("enemy-block").innerText =
+          gameState.enemy.block;
+
+        // Намерение
+        document.getElementById("intent-text").innerText = gameState.enemy
+          .intent
+          ? gameState.enemy.intent.text
+          : "-";
+
+        // Отображение карт
+        const handZone = document.getElementById("hand-zone");
+        handZone.innerHTML = "";
+
+        gameState.player.hand.forEach((card, index) => {
+          const cardEl = document.createElement("div");
+          cardEl.className = `card ${card.type}`;
+          cardEl.onclick = () => playCard(index);
+
+          cardEl.innerHTML = `
+                <div class="card-cost">⚡ ${card.cost}</div>
+                <div class="card-title">${card.name}</div>
+                <div class="card-desc">${card.desc}</div>
+            `;
+          handZone.appendChild(cardEl);
+        });
+      }
+
+      function log(msg) {
+        document.getElementById("log").innerText = msg;
+      }
+    </script>
+  </body>
+</html>
